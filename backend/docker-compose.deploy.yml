@@ -1,0 +1,36 @@
+# สำหรับเครื่อง 192.168.2.222 ที่โหลด image จากไฟล์ .tar
+# ไม่มี build context เพราะไม่ต้องมี source code บนเครื่องปลายทาง
+# ใช้คู่กับ solar-push-notifications.tar (docker load -i ...)
+services:
+  solar-push:
+    image: solar-push-notifications:latest
+    container_name: solar-push
+    restart: unless-stopped
+    ports:
+      - "5155:5155"
+    environment:
+      TZ: Asia/Bangkok
+      # ตั้งค่าทับ appsettings.json ได้จากตรงนี้ (รูปแบบ Section__Key ของ .NET)
+      SolarAlerts__SolarDataUrl: http://192.168.2.222:5154/api/get-solar-data
+      SolarAlerts__MorningTargetKwh: "1556"
+      SolarAlerts__AfternoonTargetKwh: "5444"
+      SolarAlerts__TotalTargetKwh: "7000"
+      # เวลาแจ้งเตือนอยู่ใน appsettings.json (10:01, 10:30, 15:01, 15:30, 21:01, 21:30)
+      # ถ้าจะแก้เวลาโดยไม่ build image ใหม่ ใส่ทับได้แบบนี้:
+      # SolarAlerts__Reminders__0__Shift: Morning
+      # SolarAlerts__Reminders__0__Hour: "10"
+      # SolarAlerts__Reminders__0__Minute: "1"
+    volumes:
+      # push token และสถานะแจ้งเตือนต้องอยู่รอดข้ามการ deploy
+      # ไม่งั้นทุกครั้งที่อัปเดต container ผู้ใช้ทุกคนจะหลุดจากระบบแจ้งเตือน
+      # จนกว่าจะเปิดแอปใหม่ และแจ้งเตือนเดิมจะถูกยิงซ้ำ
+      - solar-push-state:/app/state
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5155/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  solar-push-state:

@@ -1,0 +1,19 @@
+# สำหรับเครื่อง 192.168.2.222 ที่โหลด image จากไฟล์ .tar
+# ไม่มี build context เพราะไม่ต้องมี source code บนเครื่องปลายทาง
+# ใช้คู่กับ solar-web.tar (docker load -i solar-web.tar)
+services:
+  solar-web:
+    image: solar-web:latest
+    container_name: solar-web
+    restart: unless-stopped
+    ports:
+      # 5154 = API ข้อมูล, 5155 = service แจ้งเตือน, 5156 = เว็บ
+      - "5156:80"
+    environment:
+      TZ: Asia/Bangkok
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

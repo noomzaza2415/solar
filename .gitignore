@@ -33,6 +33,12 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Firebase service account key (ใช้อัปโหลดเข้า EAS เท่านั้น ห้าม commit เด็ดขาด)
+# หมายเหตุ: google-services.json ไม่ต้อง ignore — EAS Build ต้องใช้ไฟล์นี้ตอน build
+# และในไฟล์มีแต่ identifier สาธารณะ ไม่ใช่ความลับ
+*-firebase-adminsdk-*.json
+service-account*.json
+
 # typescript
 *.tsbuildinfo
 
@@ -41,3 +47,8 @@ example
 # generated native folders
 /ios
 /android
+
+# เว็บที่ export ไว้ และ image ที่ export เป็น tar
+dist-web/
+solar-web.tar
+

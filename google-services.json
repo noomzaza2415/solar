@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "808084848558",
+    "project_id": "solar-869ec",
+    "storage_bucket": "solar-869ec.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:808084848558:android:e6a43ee59f072cd5b0923f",
+        "android_client_info": {
+          "package_name": "com.anonymous.solar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD39rug3gqsbUMJd2xrhtDj6SXBGMib24s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

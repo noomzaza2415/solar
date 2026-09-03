@@ -1,0 +1,20 @@
+# เว็บเวอร์ชันของแอป เสิร์ฟด้วย nginx
+# พอร์ต 5156 (ตรวจแล้วว่าง — 5154 = API ข้อมูล, 5155 = service แจ้งเตือน)
+services:
+  solar-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    image: solar-web:latest
+    container_name: solar-web
+    restart: unless-stopped
+    ports:
+      - "5156:80"
+    environment:
+      TZ: Asia/Bangkok
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

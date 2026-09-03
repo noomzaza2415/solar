@@ -1,0 +1,9 @@
+# image ที่ export ไว้ deploy (ไฟล์ใหญ่ ไม่ควรเข้า git)
+*.tar
+
+# ข้อมูล runtime: push token และสถานะการแจ้งเตือน
+state/
+
+bin/
+obj/
+*.log
