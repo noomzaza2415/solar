@@ -1,0 +1,27 @@
+rules_version = '2';
+
+// กติกาการเข้าถึง Cloud Firestore ของโปรเจกต์ solar-869ec
+//
+// วางค่านี้ที่ Firebase Console > Firestore Database > Rules แล้วกด Publish
+// หรือ deploy ด้วย firebase deploy --only firestore:rules ถ้ามี Firebase CLI
+//
+// หลักคิด
+// - แอปทุกเครื่อง (รวมเครื่องนอกวง) ล็อกอินแบบ anonymous แล้วอ่านอย่างเดียว
+// - คนเขียนมีรายเดียวคือ service ในวง (backend/SolarPushNotifications) ซึ่งใช้ service account
+//   และ service account ข้าม rules ไปโดยปริยาย จึงไม่ต้องเปิดสิทธิ์ write ให้ใครเลยที่นี่
+// - ถ้าเปิด read เป็นสาธารณะ ใครที่รู้ project id ก็ดึงยอดผลิตไฟทั้งปีไปได้ จึงบังคับให้ล็อกอินก่อน
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ข้อมูลโซล่าที่เซิร์ฟเวอร์ในวงคัดลอกขึ้นมา (document เดียว: solar/snapshot)
+    match /solar/{document} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ที่เหลือปิดหมด กันของที่เผลอสร้างทิ้งไว้หลุดออกไป
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

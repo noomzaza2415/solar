@@ -15,11 +15,20 @@ services:
       SolarAlerts__MorningTargetKwh: "1556"
       SolarAlerts__AfternoonTargetKwh: "5444"
       SolarAlerts__TotalTargetKwh: "7000"
+      # คัดลอกข้อมูลขึ้น Firestore ให้เครื่องนอกวงอ่านได้ (แอปอ่านจาก Firestore อย่างเดียว)
+      Firestore__Enabled: "true"
+      Firestore__ProjectId: solar-869ec
+      Firestore__DocumentPath: solar/snapshot
+      Firestore__MirrorIntervalSeconds: "120"
+      Firestore__ServiceAccountPath: /app/secrets/firebase-service-account.json
     volumes:
       # push token และสถานะแจ้งเตือนต้องอยู่รอดข้ามการ deploy
       # ไม่งั้นทุกครั้งที่อัปเดต container ผู้ใช้ทุกคนจะหลุดจากระบบแจ้งเตือน
       # จนกว่าจะเปิดแอปใหม่ และแจ้งเตือนเดิมจะถูกยิงซ้ำ
       - solar-push-state:/app/state
+      # service account key ของ Firebase (ห้าม commit) mount แบบอ่านอย่างเดียว
+      # วางไฟล์ไว้ที่ backend/firebase-service-account.json ก่อน docker compose up
+      - ./firebase-service-account.json:/app/secrets/firebase-service-account.json:ro
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5155/api/status"]
       interval: 30s

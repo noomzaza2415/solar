@@ -31,10 +31,11 @@ import {
   NOTIFICATION_CHANNEL_ID,
   PUSH_TOKEN_API_URL,
   SHIFT_TARGETS,
-  SOLAR_DATA_API_URL,
   toNumber,
   type SolarApiData,
 } from "@/lib/solar-alerts";
+
+import { fetchSolarSnapshotAsync } from "@/lib/firebase";
 
 // --- Multi-language Translations ---
 const translations = {
@@ -576,14 +577,18 @@ const SolarDashboard: React.FC = () => {
     // 🛠️ เปลี่ยนมาใช้ ReturnType<typeof setInterval> แทน NodeJS.Timeout
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
+    // อ่านจาก Firestore ไม่ใช่ API ในวง เพื่อให้เครื่องนอกวงเห็นข้อมูลเหมือนกัน
+    // (เซิร์ฟเวอร์ในวงเป็นคนคัดลอกข้อมูลขึ้นไปให้ทุก 2 นาที)
     const loadSolarData = async () => {
       try {
-        const response = await axios.get<SolarApiData>(SOLAR_DATA_API_URL);
+        const snapshot = await fetchSolarSnapshotAsync();
         if (isMounted) {
-          const latestDate = getLatestSolarDataDate(response.data, new Date());
-          setSolarData(response.data);
+          const latestDate = getLatestSolarDataDate(snapshot.data, new Date());
+          setSolarData(snapshot.data);
           setLatestDataDate(latestDate);
-          setLastSyncedAt(new Date());
+          // ใช้เวลาที่เซิร์ฟเวอร์อ่านข้อมูลมาจาก API จริง ไม่ใช่เวลาที่แอปเพิ่งโหลดสำเร็จ
+          // ไม่งั้นถ้าฝั่งเซิร์ฟเวอร์ค้าง ผู้ใช้จะเห็นว่า "เพิ่งซิงก์" ทั้งที่ข้อมูลค้างมาหลายชั่วโมง
+          setLastSyncedAt(snapshot.updatedAt ?? new Date());
           setHasConnectionError(false);
         }
       } catch (error) {

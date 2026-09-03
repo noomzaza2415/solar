@@ -24,6 +24,9 @@ builder.Services.PostConfigure<SolarAlertOptions>(options =>
         .ToList();
 });
 
+builder.Services.Configure<FirestoreOptions>(
+    builder.Configuration.GetSection(FirestoreOptions.SectionName));
+
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<ExpoPushService>();
 builder.Services.AddSingleton<IPushTokenStore, FilePushTokenStore>();
@@ -31,6 +34,13 @@ builder.Services.AddSingleton<SentReminderStore>();
 builder.Services.AddSingleton<SolarReminderWorker>();
 builder.Services.AddHostedService(provider =>
     provider.GetRequiredService<SolarReminderWorker>());
+
+// คัดลอกข้อมูลจาก API ในวงขึ้น Firestore ให้เครื่องนอกวงอ่านได้
+builder.Services.AddSingleton<GoogleAccessTokenProvider>();
+builder.Services.AddSingleton<FirestoreWriter>();
+builder.Services.AddSingleton<FirestoreMirrorWorker>();
+builder.Services.AddHostedService(provider =>
+    provider.GetRequiredService<FirestoreMirrorWorker>());
 
 var app = builder.Build();
 
@@ -76,11 +86,31 @@ app.MapPost("/api/reminders/send-now", async (
     return Results.Ok(new { shift = targetShift, result });
 });
 
+// ดึงข้อมูลจริงจาก API แล้วอัปโหลดขึ้น Firestore เดี๋ยวนี้ ไม่ต้องรอรอบถัดไป
+// ใช้ตรวจว่าไฟล์ service account กับ rules ถูกต้องไหมหลัง deploy
+app.MapPost("/api/mirror/run-now", async (FirestoreMirrorWorker mirror) =>
+{
+    try
+    {
+        var result = await mirror.MirrorOnceAsync();
+        return Results.Ok(new { ok = true, result });
+    }
+    catch (Exception exception)
+    {
+        // ตอบ 500 พร้อมข้อความจริง ไม่งั้นคนกดทดสอบจะไม่รู้ว่าติดที่ token, rules หรือ API ในวง
+        return Results.Json(
+            new { ok = false, error = exception.Message },
+            statusCode: StatusCodes.Status500InternalServerError);
+    }
+});
+
 // ดูสถานะรวม ๆ ว่ามีกี่เครื่องลงทะเบียนไว้ รอบถัดไปคือเมื่อไร และรอบล่าสุดได้อะไร
 app.MapGet("/api/status", async (
     IPushTokenStore tokenStore,
     SolarReminderWorker worker,
-    IOptions<SolarAlertOptions> options) =>
+    FirestoreMirrorWorker mirror,
+    IOptions<SolarAlertOptions> options,
+    IOptions<FirestoreOptions> firestoreOptions) =>
 {
     var devices = await tokenStore.GetAllAsync();
     var now = DateTime.Now;
@@ -104,7 +134,16 @@ app.MapGet("/api/status", async (
             .ToDictionary(group => group.Key, group => group.Count()),
         schedule,
         lastCheckedAt = worker.LastCheckedAt,
-        lastResult = worker.LastResult
+        lastResult = worker.LastResult,
+        firestoreMirror = new
+        {
+            enabled = firestoreOptions.Value.Enabled,
+            document =
+                $"{firestoreOptions.Value.ProjectId}/{firestoreOptions.Value.DocumentPath}",
+            intervalSeconds = firestoreOptions.Value.MirrorIntervalSeconds,
+            lastMirroredAt = mirror.LastMirroredAt,
+            lastResult = mirror.LastResult
+        }
     });
 });
 
