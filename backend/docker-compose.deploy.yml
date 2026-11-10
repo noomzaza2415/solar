@@ -20,6 +20,7 @@ services:
       Firestore__ProjectId: solar-869ec
       Firestore__DocumentPath: solar/snapshot
       Firestore__MirrorIntervalSeconds: "120"
+      Firestore__HeartbeatIntervalSeconds: "600"
       Firestore__ServiceAccountPath: /app/secrets/firebase-service-account.json
       # เวลาแจ้งเตือนอยู่ใน appsettings.json (10:01, 10:30, 15:01, 15:30, 21:01, 21:30)
       # ถ้าจะแก้เวลาโดยไม่ build image ใหม่ ใส่ทับได้แบบนี้:

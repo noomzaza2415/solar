@@ -54,7 +54,9 @@ public sealed class SolarReminderWorker : BackgroundService
             {
                 await RunDueRemindersAsync(stoppingToken);
             }
-            catch (OperationCanceledException)
+            // HttpClient หมดเวลาก็โยน TaskCanceledException — หยุดเฉพาะตอน service กำลังปิดจริง
+            // ไม่งั้น API ช้าครั้งเดียว worker จะเลิกส่งแจ้งเตือนไปเงียบ ๆ
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }

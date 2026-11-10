@@ -7,6 +7,9 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
+// ต้องตรงกับ expo-splash-screen ใน app.json และสีพื้นโหมดมืดของหน้าหลัก (darkPalette.background)
+const SPLASH_BACKGROUND = '#070b12';
+const SPLASH_IMAGE_WIDTH = 200;
 
 export function AnimatedSplashOverlay() {
   const [animate, setAnimate] = useState(false);
@@ -33,7 +36,15 @@ export function AnimatedSplashOverlay() {
     },
   });
 
-  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
+  // ต้องเป็นภาพ พื้นหลัง และขนาดเดียวกับ splash ของเครื่อง (expo-splash-screen ใน app.json)
+  // ไม่งั้นตอนสลับจาก splash ของเครื่องมาเป็นตัวนี้จะเห็นภาพกระโดด
+  // (ของเดิมเป็นโลโก้ Expo บนพื้นฟ้าของ template ขึ้นคั่นระหว่างโลโก้บริษัทกับหน้าแอป)
+  const image = (
+    <Image
+      style={styles.splashImage}
+      source={require('@/assets/images/splash-icon-dark.png')}
+    />
+  );
 
   return animate ? (
     <Animated.View
@@ -138,9 +149,14 @@ const styles = StyleSheet.create({
     height: 128,
     position: 'absolute',
   },
+  splashImage: {
+    // ตรงกับ imageWidth ของ expo-splash-screen ใน app.json
+    width: SPLASH_IMAGE_WIDTH,
+    height: SPLASH_IMAGE_WIDTH,
+  },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
+    backgroundColor: SPLASH_BACKGROUND,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,

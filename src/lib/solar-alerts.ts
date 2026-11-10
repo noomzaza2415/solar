@@ -42,9 +42,28 @@ export type SolarApiData = Record<string, string | number | null | undefined>;
 export type ShiftName = "Morning" | "Afternoon" | "Total";
 export type AlertLanguage = "TH" | "EN" | "KR";
 
-export const toNumber = (value: string | number | null | undefined) => {
+export type TargetStatus = "pass" | "warning" | "critical";
+
+/** เกณฑ์สามระดับ ใช้ร่วมกันทั้งการ์ด แถบวันที่ legend สรุปรายเดือน และกราฟรายวัน */
+export const getTargetStatus = (
+  generated: number,
+  target: number,
+): TargetStatus => {
+  // กันหารศูนย์ ถ้าวันหนึ่งมีคนตั้งเป้าเป็น 0 จะได้ไม่ออกมาเป็น NaN%/Infinity%
+  if (!(target > 0)) return "pass";
+
+  const percentage = (generated / target) * 100;
+  if (percentage >= 100) return "pass";
+  if (percentage >= 90) return "warning";
+  return "critical";
+};
+
+export const toNumber =(value: string | number | null | undefined) => {
   if (typeof value === "number") return value;
   if (typeof value !== "string") return undefined;
+  // Number("") ได้ 0 ช่องว่างในชีตจึงกลายเป็น "ผลิตได้ 0 KWh" แทนที่จะเป็น "ยังไม่มีข้อมูล"
+  // เซิร์ฟเวอร์ (double.TryParse) ถือว่าช่องว่างคือไม่มีข้อมูล แอปต้องตรงกัน
+  if (!value.trim()) return undefined;
 
   const parsed = Number(value.replace(/,/g, ""));
   return Number.isFinite(parsed) ? parsed : undefined;

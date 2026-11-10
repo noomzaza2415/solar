@@ -54,3 +54,14 @@ example
 dist-web/
 solar-web.tar
 
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# กุญแจ signing ที่ดาวน์โหลดจาก EAS (eas credentials) ไว้ build APK ในเครื่อง ห้าม commit เด็ดขาด
+credentials.json
+credentials/
+
+# APK ที่ build ในเครื่อง ไฟล์ใหญ่เกินจะเก็บใน git
+*.apk

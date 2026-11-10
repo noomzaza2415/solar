@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import axios, { isAxiosError } from "axios";
 
 import type { SolarApiData } from "./solar-alerts";
 
@@ -64,6 +64,15 @@ export type SolarSnapshot = {
   data: SolarApiData;
   /** เวลาที่เซิร์ฟเวอร์อ่านข้อมูลชุดนี้มาจาก API จริง (null = document เก่าที่ยังไม่มีฟิลด์นี้) */
   updatedAt: Date | null;
+  /**
+   * เวลาล่าสุดที่เซิร์ฟเวอร์อ่าน API สำเร็จ แม้ตัวเลขจะไม่เปลี่ยนก็ตาม
+   *
+   * updatedAt ขยับเฉพาะตอนข้อมูลเปลี่ยน กลางคืนจึงนิ่งเป็นชั่วโมง ๆ ใช้ดูว่าเซิร์ฟเวอร์ค้างไม่ได้
+   * ตัวนี้เซิร์ฟเวอร์เขียนทุก ~10 นาที (Firestore:HeartbeatIntervalSeconds) ถ้าเก่าเกินนั้นมาก
+   * แปลว่าเซิร์ฟเวอร์ในวงหยุดทำงานหรือต่อ API ไม่ได้
+   * null = เซิร์ฟเวอร์รุ่นเก่าที่ยังไม่เขียนฟิลด์นี้ ต้องถือว่า "ไม่รู้" ไม่ใช่ "ค้าง"
+   */
+  checkedAt: Date | null;
 };
 
 type AuthSession = {
@@ -210,6 +219,14 @@ const readFirestoreValue = (
   return null;
 };
 
+const readTimestamp = (value: FirestoreValue | undefined): Date | null => {
+  const text = value?.timestampValue;
+  if (!text) return null;
+
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const readSnapshot = (document: FirestoreDocument): SolarSnapshot => {
   const fields = document.fields ?? {};
   const values = fields.values?.mapValue?.fields ?? {};
@@ -220,12 +237,10 @@ const readSnapshot = (document: FirestoreDocument): SolarSnapshot => {
     data[key] = readFirestoreValue(value);
   });
 
-  const updatedAtText = fields.updatedAt?.timestampValue;
-  const updatedAt = updatedAtText ? new Date(updatedAtText) : null;
-
   return {
     data,
-    updatedAt: updatedAt && !Number.isNaN(updatedAt.getTime()) ? updatedAt : null,
+    updatedAt: readTimestamp(fields.updatedAt),
+    checkedAt: readTimestamp(fields.checkedAt),
   };
 };
 
@@ -250,7 +265,7 @@ export const fetchSolarSnapshotAsync = async (): Promise<SolarSnapshot> => {
   try {
     return readSnapshot(await getSnapshotDocumentAsync(idToken));
   } catch (error) {
-    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+    const status = isAxiosError(error) ? error.response?.status : undefined;
 
     // 401/403 มักแปลว่า token หมดอายุระหว่างแอปหลับอยู่ ลองใหม่อีกครั้งด้วย token สด
     if (status === 401 || status === 403) {

@@ -2,13 +2,15 @@
   "expo": {
     "name": "Dongjin Solar",
     "slug": "solar",
-    "version": "1.0.0",
-    "orientation": "portrait",
+    "version": "1.0.1",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "solar",
     "userInterfaceStyle": "automatic",
+    "backgroundColor": "#070b12",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon.png",
+      "requireFullScreen": true,
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses your camera to scan QR codes for solar plant data."
       }
@@ -16,7 +18,7 @@
     "android": {
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
+        "backgroundColor": "#F6F7FA",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -26,7 +28,8 @@
         "android.permission.CAMERA",
         "android.permission.POST_NOTIFICATIONS"
       ],
-      "package": "com.anonymous.solar"
+      "package": "com.anonymous.solar",
+      "versionCode": 12
     },
     "web": {
       "output": "static",
@@ -44,9 +47,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#FFFFFF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 180
+          "backgroundColor": "#070b12",
+          "image": "./assets/images/splash-icon-dark.png",
+          "imageWidth": 200
         }
       ],
       [
@@ -55,6 +58,20 @@
           "android": {
             "usesCleartextTraffic": true
           }
+        }
+      ],
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "PORTRAIT_UP"
+        }
+      ],
+      "./plugins/with-notifee-maven-repo",
+      "./plugins/with-local-release-signing",
+      [
+        "./plugins/with-gradle-daemon-jvm",
+        {
+          "toolchainVersion": 17
         }
       ]
     ],
@@ -68,7 +85,10 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/4a77ee80-fab8-4926-89df-e25deca4feb3"
+      "url": "https://u.expo.dev/4a77ee80-fab8-4926-89df-e25deca4feb3",
+      "requestHeaders": {
+        "expo-channel-name": "preview"
+      }
     }
   }
 }

@@ -20,6 +20,7 @@ services:
       Firestore__ProjectId: solar-869ec
       Firestore__DocumentPath: solar/snapshot
       Firestore__MirrorIntervalSeconds: "120"
+      Firestore__HeartbeatIntervalSeconds: "600"
       Firestore__ServiceAccountPath: /app/secrets/firebase-service-account.json
     volumes:
       # push token และสถานะแจ้งเตือนต้องอยู่รอดข้ามการ deploy

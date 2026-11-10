@@ -41,6 +41,16 @@ public sealed class FirestoreOptions
 
     /// <summary>ทุกกี่วินาทีจะไปดึงข้อมูลจาก API มาเทียบและอัปโหลด</summary>
     public int MirrorIntervalSeconds { get; set; } = 120;
+
+    /// <summary>
+    /// ตอนข้อมูลไม่เปลี่ยน จะเขียนแค่ฟิลด์ checkedAt อย่างมากทุกกี่วินาที
+    ///
+    /// ไม่มีตัวนี้ แอปแยกไม่ออกว่า updatedAt ที่เก่า แปลว่าเซิร์ฟเวอร์ค้าง
+    /// หรือแค่เป็นช่วงกลางคืนที่ยอดไม่ขยับ (หลัง 21:00 ถึงเช้า updatedAt ไม่เปลี่ยนเลย)
+    /// ค่าเริ่มต้น 600 วินาที = ~144 ครั้งต่อวัน ยังห่างจากโควตาฟรี 20,000 ครั้ง/วันมาก
+    /// ถ้าปรับค่านี้ ต้องปรับ STALE_AFTER_MS ในแอป (src/app/index.tsx) ให้มากกว่าราวสองเท่าด้วย
+    /// </summary>
+    public int HeartbeatIntervalSeconds { get; set; } = 600;
 }
 
 /// <summary>
@@ -329,6 +339,7 @@ public sealed class FirestoreMirrorWorker : BackgroundService
     private readonly ILogger<FirestoreMirrorWorker> _logger;
 
     private string? _lastUploadedSignature;
+    private DateTimeOffset _lastCheckedAtWrittenAt = DateTimeOffset.MinValue;
 
     public FirestoreMirrorWorker(
         IHttpClientFactory httpClientFactory,
@@ -371,7 +382,10 @@ public sealed class FirestoreMirrorWorker : BackgroundService
             {
                 await MirrorOnceAsync(stoppingToken);
             }
-            catch (OperationCanceledException)
+            // HttpClient หมดเวลาก็โยน TaskCanceledException (ลูกของ OperationCanceledException)
+            // ถ้าจับแบบไม่มีเงื่อนไข API ช้าครั้งเดียว loop จะ break เงียบ ๆ แล้วไม่ mirror อีกเลย
+            // จึงหยุดเฉพาะตอน service กำลังปิดจริง กรณีอื่นตกไป catch ด้านล่างแล้วลองใหม่รอบหน้า
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }
@@ -414,10 +428,29 @@ public sealed class FirestoreMirrorWorker : BackgroundService
 
         var signature = values.ToJsonString();
 
+        var checkedAt = DateTimeOffset.UtcNow;
+
         if (signature == _lastUploadedSignature)
         {
             LastMirroredAt = DateTimeOffset.Now;
-            LastResult = $"ข้อมูลไม่เปลี่ยน ({data.Count} คีย์) ข้ามการเขียน";
+
+            var heartbeatInterval = TimeSpan.FromSeconds(
+                Math.Max(60, _options.HeartbeatIntervalSeconds));
+
+            if (checkedAt - _lastCheckedAtWrittenAt < heartbeatInterval)
+            {
+                LastResult = $"ข้อมูลไม่เปลี่ยน ({data.Count} คีย์) ข้ามการเขียน";
+                return LastResult;
+            }
+
+            // เขียนเฉพาะ checkedAt (updateMask มีแค่ฟิลด์นี้) ค่าอื่นใน document ไม่ถูกแตะ
+            // บอกแอปว่า "เซิร์ฟเวอร์ยังอ่าน API ได้ปกติ แค่ตัวเลขยังไม่ขยับ"
+            await _writer.WriteDocumentAsync(
+                new JsonObject { ["checkedAt"] = ToTimestampValue(checkedAt) },
+                cancellationToken);
+
+            _lastCheckedAtWrittenAt = checkedAt;
+            LastResult = $"ข้อมูลไม่เปลี่ยน ({data.Count} คีย์) อัปเดตแค่ checkedAt";
             return LastResult;
         }
 
@@ -428,12 +461,9 @@ public sealed class FirestoreMirrorWorker : BackgroundService
                 ["mapValue"] = new JsonObject { ["fields"] = values }
             },
             // เวลาที่ข้อมูลชุดนี้ถูกอ่านมาจาก API จริง ๆ แอปเอาไปแสดงว่า "ซิงก์ล่าสุดเมื่อ"
-            ["updatedAt"] = new JsonObject
-            {
-                ["timestampValue"] = DateTimeOffset.UtcNow.ToString(
-                    "yyyy-MM-dd'T'HH:mm:ss'Z'",
-                    CultureInfo.InvariantCulture)
-            },
+            ["updatedAt"] = ToTimestampValue(checkedAt),
+            // ข้อมูลเปลี่ยนก็แปลว่าเพิ่งตรวจเหมือนกัน
+            ["checkedAt"] = ToTimestampValue(checkedAt),
             ["source"] = new JsonObject { ["stringValue"] = _solarOptions.SolarDataUrl },
             ["keyCount"] = new JsonObject
             {
@@ -444,6 +474,7 @@ public sealed class FirestoreMirrorWorker : BackgroundService
         await _writer.WriteDocumentAsync(fields, cancellationToken);
 
         _lastUploadedSignature = signature;
+        _lastCheckedAtWrittenAt = checkedAt;
         LastMirroredAt = DateTimeOffset.Now;
         LastResult = $"อัปโหลด {data.Count} คีย์ขึ้น {_options.DocumentPath} แล้ว";
 
@@ -454,4 +485,11 @@ public sealed class FirestoreMirrorWorker : BackgroundService
 
         return LastResult;
     }
+
+    private static JsonObject ToTimestampValue(DateTimeOffset value) => new()
+    {
+        ["timestampValue"] = value.UtcDateTime.ToString(
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            CultureInfo.InvariantCulture)
+    };
 }
